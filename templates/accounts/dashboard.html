@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+
+{% block title %}Tableau de bord - AcadReminder{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+  <div>
+    <p class="text-primary fw-bold text-uppercase small mb-1">Espace etudiant</p>
+    <h1 class="h2 mb-0">Bonjour {{ user.first_name|default:user.username }}</h1>
+  </div>
+  <div class="d-flex flex-wrap gap-2">
+    <a class="btn btn-primary" href="{% url 'chatbot:chat' %}">Question au chatbot</a>
+    <a class="btn btn-outline-primary" href="{% url 'reminders:preferences' %}">Mes rappels</a>
+  </div>
+</div>
+
+<div class="row g-3 mb-4">
+  <div class="col-md-4">
+    <div class="stat-card">
+      <span>Evenements a venir</span>
+      <strong>{{ total_upcoming_events }}</strong>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="stat-card">
+      <span>Notifications non lues</span>
+      <strong>{{ unread_count }}</strong>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="stat-card">
+      <span>Prochaine echeance</span>
+      <strong class="stat-title">{% if next_event %}{{ next_event.start_date|date:"d/m" }}{% else %}-{% endif %}</strong>
+    </div>
+  </div>
+</div>
+
+<div class="row g-4">
+  <div class="col-lg-7">
+    <div class="card shadow-sm h-100">
+      <div class="card-body">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+          <h2 class="h5 mb-0">Prochaines dates importantes</h2>
+          <a class="small" href="{% url 'calendar_app:events_ics' %}">Exporter .ics</a>
+        </div>
+        <div class="list-group list-group-flush">
+          {% for event in events %}
+            <a class="list-group-item list-group-item-action" href="{{ event.get_absolute_url }}">
+              <div class="d-flex justify-content-between gap-3">
+                <strong>{{ event.title }}</strong>
+                <span class="badge text-bg-{{ event.urgency_class }}">{{ event.status_label }}</span>
+              </div>
+              <span class="text-secondary">{{ event.get_event_type_display }} - {{ event.start_date|date:"d/m/Y" }} - {{ event.location|default:"Lieu non precise" }}</span>
+            </a>
+          {% empty %}
+            <p class="text-secondary mb-0">Aucun evenement a venir.</p>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-5">
+    <div class="card shadow-sm h-100">
+      <div class="card-body">
+        <h2 class="h5">Urgences cette semaine</h2>
+        {% for event in urgent_events %}
+          <div class="urgent-item">
+            <span class="badge text-bg-{{ event.urgency_class }}">{{ event.status_label }}</span>
+            <a href="{{ event.get_absolute_url }}">{{ event.title }}</a>
+          </div>
+        {% empty %}
+          <p class="text-secondary">Aucune urgence dans les 7 prochains jours.</p>
+        {% endfor %}
+        <hr>
+        <h2 class="h5">Notifications recentes</h2>
+        {% for notification in notifications %}
+          <div class="border-bottom py-2">
+            <p class="mb-1">{{ notification.message }}</p>
+            <small class="text-secondary">{{ notification.created_at|date:"d/m/Y H:i" }}</small>
+          </div>
+        {% empty %}
+          <p class="text-secondary">Aucune notification pour le moment.</p>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

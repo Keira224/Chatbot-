@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% load form_tags %}
+
+{% block title %}Preferences de rappel - AcadReminder{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-lg-7">
+    <div class="card shadow-sm">
+      <div class="card-body p-4">
+        <h1 class="h3 mb-3">Preferences de rappel</h1>
+        <form method="post">
+          {% csrf_token %}
+          <div class="mb-3">
+            <label class="form-label">{{ form.event_types.label }}</label>
+            <div class="checkbox-grid">
+              {{ form.event_types }}
+            </div>
+          </div>
+          <div class="mb-3">
+            <label class="form-label" for="{{ form.reminder_days.id_for_label }}">{{ form.reminder_days.label }}</label>
+            {{ form.reminder_days|add_class:"form-select" }}
+          </div>
+          <div class="form-check mb-3">
+            {{ form.email_enabled|add_class:"form-check-input" }}
+            <label class="form-check-label" for="{{ form.email_enabled.id_for_label }}">{{ form.email_enabled.label }}</label>
+          </div>
+          <button class="btn btn-primary" type="submit">Enregistrer les preferences</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

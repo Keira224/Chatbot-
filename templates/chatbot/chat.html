@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+{% load form_tags %}
+
+{% block title %}Chatbot - AcadReminder{% endblock %}
+
+{% block content %}
+<div class="chatgpt-shell">
+  <aside class="chatgpt-sidebar">
+    <div class="chatgpt-brand">
+      <span class="chatgpt-logo">A</span>
+      <div>
+        <strong>AcadReminder</strong>
+        <small>Assistant academique</small>
+      </div>
+    </div>
+    <a class="chatgpt-new" href="{% url 'chatbot:chat' %}">Nouvelle discussion</a>
+    <div class="chatgpt-history">
+      <span class="chatgpt-section-title">Historique recent</span>
+      {% for message in messages reversed %}
+        <a class="chatgpt-history-link" href="#message-{{ message.id }}">
+          <span>{{ message.question }}</span>
+          <small>{{ message.created_at|date:"d/m H:i" }}</small>
+        </a>
+      {% empty %}
+        <p>Aucune discussion pour le moment.</p>
+      {% endfor %}
+    </div>
+  </aside>
+
+  <section class="chatgpt-main">
+    <header class="chatgpt-header">
+      <div>
+        <p>Chatbot de rappel</p>
+        <h1>Assistant academique</h1>
+      </div>
+      <span class="chatgpt-status">Base calendrier</span>
+    </header>
+
+    <div class="chatgpt-messages" id="chatMessages">
+      {% if messages %}
+        {% for message in messages %}
+          <article class="chatgpt-turn" id="message-{{ message.id }}">
+            <div class="chatgpt-avatar chatgpt-avatar-user">{{ user.first_name|default:user.username|slice:":1"|upper }}</div>
+            <div class="chatgpt-bubble chatgpt-bubble-user">
+              <div class="chatgpt-message-meta">Vous</div>
+              <p>{{ message.question }}</p>
+            </div>
+          </article>
+          <article class="chatgpt-turn chatgpt-turn-assistant">
+            <div class="chatgpt-avatar chatgpt-avatar-bot">A</div>
+            <div class="chatgpt-bubble chatgpt-bubble-bot">
+              <div class="chatgpt-message-meta">AcadReminder</div>
+              <div class="chatgpt-answer">{{ message.answer|linebreaksbr }}</div>
+            </div>
+          </article>
+        {% endfor %}
+      {% else %}
+        <div class="chatgpt-empty">
+          <span class="chatgpt-logo chatgpt-logo-large">A</span>
+          <h2>Comment puis-je vous aider ?</h2>
+          <p>Posez une question sur les inscriptions, examens, soutenances, paiements, reunions ou depots de dossiers.</p>
+        </div>
+      {% endif %}
+    </div>
+
+    <div class="chatgpt-suggestions">
+      {% for suggestion in suggestions %}
+        <button class="quick-question" type="button" data-question="{{ suggestion }}">{{ suggestion }}</button>
+      {% endfor %}
+    </div>
+
+    <form method="post" class="chatgpt-composer">
+      {% csrf_token %}
+      <label class="visually-hidden" for="{{ form.question.id_for_label }}">{{ form.question.label }}</label>
+      {{ form.question|add_class:"chatgpt-input" }}
+      <button class="chatgpt-send" type="submit" aria-label="Envoyer la question">
+        <span aria-hidden="true">↑</span>
+      </button>
+    </form>
+  </section>
+</div>
+{% endblock %}

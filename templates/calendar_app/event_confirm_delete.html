@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+
+{% block title %}Supprimer {{ event.title }} - AcadReminder{% endblock %}
+
+{% block content %}
+<div class="mx-auto" style="max-width: 720px;">
+  <div class="card shadow-sm border-danger">
+    <div class="card-body p-4">
+      <p class="text-danger fw-bold text-uppercase small mb-1">Suppression evenement</p>
+      <h1 class="h3">Supprimer cet evenement ?</h1>
+      <p class="text-secondary">Cette action supprimera aussi les notifications liees a cet evenement.</p>
+      <div class="info-box mb-3">
+        <span>{{ event.get_event_type_display }} - {{ event.start_date|date:"d/m/Y" }}</span>
+        <strong>{{ event.title }}</strong>
+      </div>
+      <form method="post" class="d-flex flex-wrap justify-content-end gap-2">
+        {% csrf_token %}
+        <a class="btn btn-outline-secondary" href="{% url 'calendar_app:event_manage' %}">Annuler</a>
+        <button class="btn btn-danger" type="submit">Confirmer la suppression</button>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+{% load form_tags %}
+
+{% block title %}Gestion des evenements - AcadReminder{% endblock %}
+
+{% block content %}
+<section class="admin-workspace">
+  <header class="admin-page-header">
+    <div>
+      <p class="admin-eyebrow">Administration du calendrier</p>
+      <h1>Gestion des evenements</h1>
+      <p class="admin-page-description">Ajoutez et maintenez les dates visibles par les etudiants et le chatbot.</p>
+    </div>
+    <div class="admin-header-actions">
+      <a class="btn btn-outline-secondary" href="{% url 'calendar_app:monthly_calendar' %}">Voir le calendrier</a>
+      <a class="btn btn-primary" href="{% url 'calendar_app:event_create' %}">Ajouter un evenement</a>
+    </div>
+  </header>
+
+  <div class="admin-metrics">
+    <div class="admin-metric">
+      <span>Total</span>
+      <strong>{{ total_events }}</strong>
+      <small>evenements enregistres</small>
+    </div>
+    <div class="admin-metric admin-metric-active">
+      <span>A venir</span>
+      <strong>{{ upcoming_events }}</strong>
+      <small>visibles dans les rappels</small>
+    </div>
+    <div class="admin-metric">
+      <span>Termines</span>
+      <strong>{{ past_events }}</strong>
+      <small>conserves dans l'historique</small>
+    </div>
+  </div>
+
+  <div class="admin-data-panel">
+    <div class="admin-data-toolbar">
+      <div>
+        <h2>Liste des evenements</h2>
+        <p>Filtrez puis ouvrez une ligne pour consulter ou modifier les informations.</p>
+      </div>
+      <form method="get" class="admin-filter-form">
+        <div class="admin-search-field">
+          <label class="visually-hidden" for="{{ form.q.id_for_label }}">{{ form.q.label }}</label>
+          {{ form.q|add_class:"form-control" }}
+        </div>
+        <div>
+          <label class="visually-hidden" for="{{ form.event_type.id_for_label }}">{{ form.event_type.label }}</label>
+          {{ form.event_type|add_class:"form-select" }}
+        </div>
+        <button class="btn btn-dark" type="submit">Filtrer</button>
+        {% if request.GET.q or request.GET.event_type %}
+          <a class="btn btn-link" href="{% url 'calendar_app:event_manage' %}">Reinitialiser</a>
+        {% endif %}
+      </form>
+    </div>
+
+    <div class="table-responsive">
+      <table class="table admin-events-table align-middle mb-0">
+        <thead>
+          <tr>
+            <th>Evenement</th>
+            <th>Type</th>
+            <th>Periode</th>
+            <th>Lieu</th>
+            <th>Etat</th>
+            <th class="text-end">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for event in events %}
+            <tr>
+              <td data-label="Evenement">
+                <a class="admin-event-title" href="{{ event.get_absolute_url }}">{{ event.title }}</a>
+                <div class="admin-event-description">{{ event.description|truncatewords:12 }}</div>
+              </td>
+              <td data-label="Type"><span class="admin-type-label">{{ event.get_event_type_display }}</span></td>
+              <td data-label="Periode">
+                <strong>{{ event.start_date|date:"d/m/Y" }}</strong>
+                {% if event.end_date != event.start_date %}
+                  <small>au {{ event.end_date|date:"d/m/Y" }}</small>
+                {% endif %}
+              </td>
+              <td data-label="Lieu">{{ event.location|default:"Non precise" }}</td>
+              <td data-label="Etat"><span class="badge text-bg-{{ event.urgency_class }}">{{ event.status_label }}</span></td>
+              <td class="text-end" data-label="Actions">
+                <div class="admin-row-actions">
+                  <a class="btn btn-sm btn-outline-secondary" href="{{ event.get_absolute_url }}">Voir</a>
+                  <a class="btn btn-sm btn-outline-primary" href="{% url 'calendar_app:event_update' event.pk %}">Modifier</a>
+                  <a class="btn btn-sm btn-outline-danger" href="{% url 'calendar_app:event_delete' event.pk %}">Supprimer</a>
+                </div>
+              </td>
+            </tr>
+          {% empty %}
+            <tr>
+              <td colspan="6">
+                <div class="admin-empty-state">
+                  <h3>Aucun evenement trouve</h3>
+                  <p>Modifiez les filtres ou ajoutez le premier evenement du calendrier.</p>
+                  <a class="btn btn-primary btn-sm" href="{% url 'calendar_app:event_create' %}">Ajouter un evenement</a>
+                </div>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+{% endblock %}

@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+
+{% block title %}Vue mensuelle - AcadReminder{% endblock %}
+
+{% block content %}
+<section class="calendar-page">
+  <div class="calendar-hero">
+    <div>
+      <p class="calendar-kicker">Calendrier academique</p>
+      <h1>{{ current_month|date:"F Y" }}</h1>
+      <p>{{ events_count }} evenement(s) programme(s) ce mois-ci</p>
+    </div>
+    <div class="calendar-actions">
+      <a class="btn btn-light border" href="?year={{ previous_month.year }}&month={{ previous_month.month }}">Mois precedent</a>
+      <a class="btn btn-outline-primary" href="{% url 'calendar_app:event_list' %}">Liste</a>
+      <a class="btn btn-primary" href="?year={{ next_month.year }}&month={{ next_month.month }}">Mois suivant</a>
+    </div>
+  </div>
+
+  <div class="calendar-layout">
+    <div class="calendar-board">
+      <div class="calendar-toolbar">
+        <div>
+          <strong>Vue du mois</strong>
+          <span>Les evenements sur plusieurs jours restent visibles chaque jour concerne.</span>
+        </div>
+        <div class="calendar-legend">
+          <span><i class="legend-dot legend-danger"></i>Urgent</span>
+          <span><i class="legend-dot legend-warning"></i>Proche</span>
+          <span><i class="legend-dot legend-success"></i>En cours</span>
+        </div>
+      </div>
+
+      <div class="calendar-month">
+        <div class="calendar-weekdays">
+          {% for weekday in weekdays %}
+            <div>{{ weekday }}</div>
+          {% endfor %}
+        </div>
+        {% for week in weeks %}
+          <div class="calendar-week">
+            {% for day in week %}
+              <div class="calendar-day{% if not day.in_month %} calendar-day-muted{% endif %}{% if day.is_today %} calendar-day-today{% endif %}">
+                <div class="calendar-day-header">
+                  <span class="calendar-day-number">{{ day.date.day }}</span>
+                  {% if day.is_today %}
+                    <span class="calendar-today-pill">Aujourd'hui</span>
+                  {% endif %}
+                </div>
+                <div class="calendar-day-events">
+                  {% for event in day.events %}
+                    <a class="calendar-event calendar-event-{{ event.urgency_class }}" href="{{ event.get_absolute_url }}">
+                      <span>{{ event.title }}</span>
+                      <small>{{ event.get_event_type_display }}</small>
+                    </a>
+                  {% empty %}
+                    {% if day.in_month %}
+                      <span class="calendar-empty">Libre</span>
+                    {% endif %}
+                  {% endfor %}
+                </div>
+              </div>
+            {% endfor %}
+          </div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <aside class="calendar-sidebar">
+      <div class="calendar-side-panel">
+        <div class="calendar-side-header">
+          <span>Planning</span>
+          <strong>{{ events_count }}</strong>
+        </div>
+        {% for event in month_events %}
+          <a class="calendar-side-event" href="{{ event.get_absolute_url }}">
+            <span class="side-date">{{ event.start_date|date:"d/m" }}</span>
+            <span>
+              <strong>{{ event.title }}</strong>
+              <small>{{ event.get_event_type_display }} - {{ event.location|default:"Lieu non precise" }}</small>
+            </span>
+          </a>
+        {% empty %}
+          <p class="text-secondary mb-0">Aucun evenement pour ce mois.</p>
+        {% endfor %}
+      </div>
+    </aside>
+  </div>
+</section>
+{% endblock %}
