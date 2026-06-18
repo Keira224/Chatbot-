@@ -43,13 +43,217 @@ Rapport mis à jour le 18 juin 2026.
 
 ### Assistant académique
 
-Le chatbot utilise trois niveaux de réponse :
+Le chatbot est un système hybride. Il ne transmet pas directement toutes les questions à Gemini : il recherche d’abord une réponse locale fiable, puis utilise l’IA uniquement lorsque cela apporte une valeur supplémentaire.
 
-1. Les scénarios enregistrés dans la base de connaissances.
-2. Les événements présents dans le calendrier.
-3. Gemini lorsque la clé API est configurée.
+Ordre de traitement :
 
-Si Gemini est indisponible ou si aucune clé n’est fournie, le moteur local continue de répondre à partir des données académiques disponibles. Les réponses sont mises en cache afin de limiter les appels externes.
+1. Recherche d’une réponse déjà présente dans le cache.
+2. Traitement des questions simples : salutation, aide ou nombre d’événements.
+3. Recherche dans la base de connaissances.
+4. Préparation d’un contexte contenant uniquement les événements pertinents.
+5. Appel à Gemini si une clé API est configurée.
+6. Validation de la réponse Gemini.
+7. Repli vers le moteur local si Gemini est absent, indisponible ou imprécis.
+8. Enregistrement de la question, de la réponse et de sa source.
+
+La source affichée dans l’historique peut être :
+
+- `Gemini` : réponse générée par le modèle externe ;
+- `Calendrier` : réponse construite à partir des événements ;
+- `Base de connaissances` : procédure enregistrée dans Django ;
+- `Réponse locale` : salutation ou réponse déterministe simple.
+
+### Chaîne de traitement du chatbot
+
+```text
+Utilisateur React
+      |
+      | POST /accounts/api/etudiant/chat/
+      v
+API Django authentifiée
+      |
+      v
+Nettoyage et normalisation de la question
+      |
+      v
+Recherche dans le cache
+      |
+      +---- réponse trouvée ----------------------+
+      |                                          |
+      | non                                      |
+      v                                          |
+FAQ locale et base de connaissances              |
+      |                                          |
+      v                                          |
+Sélection des événements pertinents              |
+      |                                          |
+      v                                          |
+Construction d’un prompt contrôlé                |
+      |                                          |
+      v                                          |
+Gemini configuré ?                               |
+      |                                          |
+   oui|     |non                                  |
+      v     v                                     |
+Validation  Moteur local                         |
+      |       |                                   |
+      +-------+-----------------------------------+
+              |
+              v
+Cache + enregistrement dans ChatMessage
+              |
+              v
+Réponse JSON vers React
+```
+
+### Compréhension des questions
+
+Avant le traitement, la question est normalisée :
+
+- conversion en minuscules ;
+- suppression partielle des accents pour la recherche ;
+- retrait des salutations placées avant une vraie question ;
+- découpage en mots significatifs ;
+- détection du type d’événement demandé.
+
+Le moteur reconnaît notamment :
+
+- `inscription`, `inscrire` ;
+- `examen`, `contrôle`, `épreuve` ;
+- `soutenance` ;
+- `paiement`, `frais` ;
+- `dépôt`, `dossier`, `mémoire` ;
+- `réunion`.
+
+Il interprète aussi des périodes comme `aujourd’hui`, `demain`, `cette semaine` ou `ce mois`, ainsi que des quantités telles que « les 5 prochains événements ».
+
+### Base de connaissances
+
+Le modèle `ChatbotKnowledge` contient les réponses de référence qui ne dépendent pas directement du calendrier :
+
+- titre du scénario ;
+- question d’exemple ;
+- réponse officielle ;
+- mots-clés ;
+- catégorie ;
+- public concerné ;
+- priorité ;
+- état actif ou inactif.
+
+La recherche attribue un score aux scénarios selon les mots présents dans la question, le titre, la question d’exemple, la réponse et la priorité. Une réponse suffisamment pertinente peut être utilisée directement sans appel à Gemini.
+
+Les scénarios de démonstration sont chargés avec :
+
+```powershell
+python manage.py seed_chatbot_knowledge
+```
+
+Ils couvrent notamment les inscriptions, examens, paiements, documents, soutenances, enseignants, comptes et notifications. Ils peuvent ensuite être modifiés depuis Django Admin.
+
+### Sélection des événements
+
+Pour une question liée au calendrier, Django interroge `AcademicEvent.objects.upcoming()` puis applique les filtres détectés :
+
+- type d’événement ;
+- période demandée ;
+- nombre maximal d’éléments.
+
+Seuls les événements retenus sont ajoutés au contexte envoyé à Gemini. Pour chaque événement, le contexte contient :
+
+- le titre ;
+- le type ;
+- la date de début et de fin ;
+- le lieu ;
+- la description.
+
+Cette sélection réduit le volume du prompt et limite les réponses inventées.
+
+### Intégration Gemini
+
+L’appel est effectué côté serveur avec l’API Gemini `generateContent`. La clé n’est jamais envoyée au navigateur.
+
+Le prompt demande au modèle :
+
+- de répondre en français ;
+- de rester court et clair ;
+- d’utiliser uniquement les événements fournis pour les dates et les lieux ;
+- de ne rien inventer ;
+- de signaler lorsque l’information n’existe pas ;
+- de présenter chaque événement avec sa période, son lieu et une explication.
+
+La température est fixée à `0.15` afin de favoriser des réponses stables. Le délai réseau est limité à 12 secondes.
+
+### Validation et mécanisme de secours
+
+Une réponse Gemini n’est pas acceptée automatiquement. Le backend la rejette notamment si :
+
+- l’appel réseau échoue ;
+- aucun candidat n’est retourné ;
+- la génération est interrompue ;
+- la réponse est trop courte ;
+- les événements attendus ne sont pas cités dans une réponse liée au calendrier.
+
+En cas de rejet, le moteur local produit une réponse structurée depuis la base de données. Il peut indiquer les événements, périodes, délais, lieux et descriptions sans dépendre d’un service externe.
+
+### Cache et invalidation
+
+Chaque réponse est mise en cache pendant la durée définie par `CHATBOT_CACHE_TIMEOUT`, soit six heures par défaut.
+
+La clé de cache contient :
+
+- la version configurée dans `CHATBOT_CACHE_VERSION` ;
+- la question normalisée ;
+- le nombre d’événements et leur dernière modification ;
+- le nombre de connaissances actives et leur dernière modification.
+
+Ainsi, une modification du calendrier ou de la base de connaissances produit automatiquement une nouvelle clé. Une ancienne réponse ne sera donc pas réutilisée après une mise à jour des données.
+
+Le cache actuel utilise `LocMemCache`. Il convient au développement et aux démonstrations sur un seul processus. Pour un déploiement avec plusieurs instances Django, Redis est recommandé.
+
+### Historique des conversations
+
+Chaque échange validé crée un objet `ChatMessage` contenant :
+
+- l’utilisateur ;
+- la question ;
+- la réponse ;
+- la source utilisée ;
+- la date de création.
+
+Le tableau de bord académique retourne les huit messages les plus récents afin d’afficher l’historique dans React.
+
+### API du chatbot
+
+Endpoint :
+
+```text
+POST /accounts/api/etudiant/chat/
+```
+
+Cette route nécessite une session Django authentifiée et un jeton CSRF. Elle est réservée aux étudiants et enseignants.
+
+Exemple de requête :
+
+```json
+{
+  "question": "Quels sont les 3 prochains examens ?"
+}
+```
+
+Exemple de réponse :
+
+```json
+{
+  "message": {
+    "id": 12,
+    "question": "Quels sont les 3 prochains examens ?",
+    "answer": "Voici les informations confirmées...",
+    "source": "calendar",
+    "source_label": "Calendrier",
+    "created_at": "2026-06-18T10:30:00Z"
+  }
+}
+```
 
 ## Architecture
 
@@ -66,13 +270,30 @@ API Django
    +-- Comptes et rôles
    +-- Calendrier académique
    +-- Rappels et notifications
-   +-- Chatbot et cache
+   +-- Orchestrateur du chatbot
+   |      +-- FAQ locale
+   |      +-- Base de connaissances
+   |      +-- Données du calendrier
+   |      +-- Gemini
+   |      +-- Validation et repli local
+   |      +-- Cache
    |
    v
 Base de données SQLite
 ```
 
 Django sert le fichier compilé `static/react/index.html` pour les pages publiques, académiques et administratives. Les anciennes vues fonctionnelles redirigent vers les écrans correspondants dans React.
+
+### Répartition des responsabilités
+
+| Composant | Responsabilité |
+|---|---|
+| `frontend/src/main.jsx` | Interface React, envoi des questions et affichage de l’historique |
+| `accounts/api_views.py` | Authentification de la requête et endpoint JSON du chatbot |
+| `chatbot/services.py` | Orchestration, recherche, Gemini, validation, cache et moteur local |
+| `chatbot/models.py` | Historique des messages et base de connaissances |
+| `calendar_app/models.py` | Source officielle des événements académiques |
+| `config/settings.py` | Clé Gemini, modèle, version et durée du cache |
 
 ## Technologies
 
