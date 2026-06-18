@@ -1,184 +1,310 @@
 # AcadReminder
 
-AcadReminder est une application React avec une API Django pour le rappel des dates importantes academiques. Elle permet aux etudiants et enseignants de consulter un calendrier academique, de recevoir des rappels visibles dans l'application et d'interroger un chatbot base sur les evenements enregistres.
+AcadReminder est une plateforme web de gestion des dates académiques importantes. L’interface utilisateur est entièrement développée avec React, tandis que Django fournit l’API, l’authentification, les règles métier et l’accès aux données.
 
-## Fonctionnalites
+Le projet permet aux étudiants et enseignants de consulter le calendrier académique, configurer leurs rappels et interroger un assistant conversationnel. Les administrateurs disposent d’un espace séparé pour superviser les utilisateurs et gérer les événements.
 
-### Utilisateurs academiques
+## État du projet
 
-- Inscription avec identification du role : etudiant ou enseignant.
-- Connexion, deconnexion et profil academique.
-- Calendrier academique : liste, detail, recherche et filtre par type.
-- Types d'evenements : inscription, examen, soutenance, paiement, depot de dossier, reunion, autre.
-- Chatbot academique : reponses basees sur des mots-cles et les donnees de la base.
-- Rappels : preferences par type d'evenement et delai de notification.
-- Notifications internes affichees dans le tableau de bord.
-- Tableau de bord actif : statistiques, urgences de la semaine et prochaine echeance.
-- Export `.ics` pour ajouter les evenements dans Google Calendar, Outlook ou Apple Calendar.
-- Questions rapides dans le chatbot pour faciliter la demonstration.
-- Action pour marquer toutes les notifications comme lues.
+Rapport mis à jour le 18 juin 2026.
 
-### Acteur administrateur
+- Interface entièrement migrée vers React.
+- Anciens templates Django supprimés.
+- Authentification et inscription intégrées à React.
+- API Django protégée selon le rôle de l’utilisateur.
+- Compilation de production React validée.
+- Vérification Django sans erreur.
+- 19 tests automatisés réussis.
 
-- Ajout, modification et suppression des evenements via Django Admin.
-- Gestion des utilisateurs via Django Admin.
-- Page de supervision avec statistiques systeme.
-- Administration Django configuree pour les evenements, profils, rappels et discussions.
+## Fonctionnalités
 
-## Technologies utilisees
+### Espace académique
+
+- Inscription comme étudiant ou enseignant.
+- Connexion et déconnexion sécurisées avec une session Django.
+- Tableau de bord avec statistiques et prochaines échéances.
+- Calendrier mensuel interactif.
+- Liste, recherche et filtrage des événements.
+- Consultation des inscriptions, examens, soutenances, paiements, réunions et dépôts de dossiers.
+- Export des événements au format `.ics`.
+- Gestion du profil académique.
+- Configuration des types de rappels, du délai et des alertes par email.
+- Consultation et marquage des notifications comme lues.
+- Assistant académique avec historique de conversation.
+
+### Espace administrateur
+
+- Tableau de bord de supervision.
+- Statistiques sur les étudiants, enseignants, événements et notifications.
+- Liste et recherche des utilisateurs.
+- Création, modification et suppression des événements.
+- Accès séparé des comptes académiques.
+- Administration Django disponible à l’adresse `/admin/`.
+
+### Assistant académique
+
+Le chatbot utilise trois niveaux de réponse :
+
+1. Les scénarios enregistrés dans la base de connaissances.
+2. Les événements présents dans le calendrier.
+3. Gemini lorsque la clé API est configurée.
+
+Si Gemini est indisponible ou si aucune clé n’est fournie, le moteur local continue de répondre à partir des données académiques disponibles. Les réponses sont mises en cache afin de limiter les appels externes.
+
+## Architecture
+
+```text
+Navigateur
+   |
+   v
+Application React
+   |
+   | Requêtes JSON avec session et protection CSRF
+   v
+API Django
+   |
+   +-- Comptes et rôles
+   +-- Calendrier académique
+   +-- Rappels et notifications
+   +-- Chatbot et cache
+   |
+   v
+Base de données SQLite
+```
+
+Django sert le fichier compilé `static/react/index.html` pour les pages publiques, académiques et administratives. Les anciennes vues fonctionnelles redirigent vers les écrans correspondants dans React.
+
+## Technologies
+
+### Backend
 
 - Python
-- Django
-- React
-- Vite
-- SQLite en developpement
+- Django 5
+- SQLite
+- Sessions Django
+- Protection CSRF
+- API JSON
 
-## Installation
+### Frontend
 
-Depuis le dossier du projet :
+- React 18
+- Vite 6
+- Lucide React
+- CSS responsive personnalisé
 
-```powershell
-python -m venv .venv
-.\.venv\Scripts\Activate.ps1
-pip install -r requirements.txt
-python manage.py migrate
-python manage.py seed_academic_events
-python manage.py createsuperuser
-python manage.py runserver
-```
+### Intelligence artificielle
 
-Sur macOS ou Linux :
-
-```bash
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-python manage.py migrate
-python manage.py seed_academic_events
-python manage.py createsuperuser
-python manage.py runserver
-```
-
-L'application sera disponible sur `http://127.0.0.1:8000/`.
-
-Les espaces React sont accessibles apres connexion :
-
-- Etudiants et enseignants : `http://127.0.0.1:8000/accounts/espace-academique/`
-- Administrateur : `http://127.0.0.1:8000/accounts/espace-admin/`
-
-Les comptes etudiant et enseignant utilisent le meme espace academique et ne peuvent pas utiliser les API d'administration. Un compte administrateur est redirige automatiquement vers son espace dedie apres connexion.
-
-Pour reconstruire le frontend apres une modification :
-
-```powershell
-cd frontend
-npm install
-npm run build
-```
-
-## Commandes utiles
-
-```bash
-python manage.py runserver
-python manage.py makemigrations
-python manage.py migrate
-python manage.py createsuperuser
-python manage.py seed_academic_events
-python manage.py check
-```
-
-## Intelligence artificielle Gemini
-
-Le chatbot utilise Gemini si la variable d'environnement `GEMINI_API_KEY` est definie. Si la cle est absente ou si l'appel echoue, l'application revient automatiquement au chatbot local base sur les evenements du calendrier.
-
-Le projet met aussi les reponses en cache pendant 6 heures. Une question identique est donc servie sans nouvel appel API. La cle de cache contient l'etat du calendrier : si un evenement est ajoute ou modifie, les anciennes reponses ne sont plus reutilisees.
-
-Vous pouvez renseigner les variables directement dans le fichier `.env` a la racine du projet :
-
-```env
-GEMINI_API_KEY=votre-cle-api-gemini
-GEMINI_MODEL=gemini-2.5-flash
-CHATBOT_CACHE_TIMEOUT=21600
-```
-
-Redemarrez Django apres chaque modification du fichier `.env`. Ce fichier est ignore par Git. Le fichier `.env.example` peut servir de modele sans contenir de vraie cle.
-
-PowerShell :
-
-```powershell
-$env:GEMINI_API_KEY="votre-cle-api-gemini"
-$env:GEMINI_MODEL="gemini-2.5-flash"
-$env:CHATBOT_CACHE_TIMEOUT="21600"
-python manage.py runserver
-```
-
-macOS ou Linux :
-
-```bash
-export GEMINI_API_KEY="votre-cle-api-gemini"
-export GEMINI_MODEL="gemini-2.5-flash"
-export CHATBOT_CACHE_TIMEOUT="21600"
-python manage.py runserver
-```
-
-Ne placez jamais la vraie cle dans `settings.py`, un template, JavaScript ou un commit Git. Creez une cle depuis Google AI Studio et utilisez de preference une nouvelle cle d'autorisation restreinte a Gemini API.
-
-### Utilisation gratuite
-
-Gemini Developer API propose un niveau gratuit avec des limites de debit. Pour ce projet :
-
-1. Ouvrir Google AI Studio et creer une cle API.
-2. Conserver `GEMINI_MODEL="gemini-2.5-flash"` pour des reponses rapides et stables.
-3. Placer la cle uniquement dans `GEMINI_API_KEY`.
-4. Lancer Django depuis le meme terminal.
-
-Pour une demonstration sans internet ou lorsque la limite gratuite est atteinte, le moteur local et le cache continuent de repondre aux questions basees sur le calendrier. Le cache actuel est en memoire et convient a une demonstration locale. Pour un deploiement avec plusieurs serveurs, utiliser Redis comme backend Django Cache.
-
-### Exposition temporaire avec ngrok
-
-Demarrez d'abord Django avec une configuration publique :
-
-```powershell
-$env:DJANGO_SECRET_KEY="une-longue-valeur-aleatoire"
-$env:DJANGO_DEBUG="False"
-$env:GEMINI_API_KEY="votre-cle-api-gemini"
-$env:GEMINI_MODEL="gemini-2.5-flash"
-$env:ALLOWED_HOSTS="127.0.0.1,localhost,votre-domaine.ngrok-free.app"
-$env:CSRF_TRUSTED_ORIGINS="https://votre-domaine.ngrok-free.app"
-python manage.py runserver --insecure
-```
-
-Dans un second terminal :
-
-```powershell
-ngrok http 8000
-```
-
-Si ngrok attribue un nouveau domaine, mettez a jour `ALLOWED_HOSTS` et `CSRF_TRUSTED_ORIGINS`, puis relancez Django. Ngrok convient a une demonstration temporaire, pas a un hebergement permanent.
-
-L'option `--insecure` sert uniquement a charger les fichiers CSS pendant cette demonstration locale avec `DEBUG=False`. Pour un vrai deploiement, utilisez un serveur web ou un service d'hebergement pour les fichiers statiques.
+- Gemini Developer API
+- Moteur local de secours
+- Base de connaissances administrable
+- Cache Django
 
 ## Structure du projet
 
 ```text
 acadreminder/
+├── accounts/          # comptes, rôles, authentification et API
+├── calendar_app/      # événements et exports de calendrier
+├── chatbot/           # assistant, Gemini et base de connaissances
+├── config/            # configuration principale Django
+├── docs/              # documentation complémentaire
+├── frontend/          # sources React et configuration Vite
+├── reminders/         # préférences, notifications et emails
+├── static/react/      # application React compilée
+├── .env.example       # exemple de configuration
 ├── manage.py
-├── requirements.txt
 ├── README.md
-├── .gitignore
-├── config/
-├── accounts/
-├── calendar_app/
-├── chatbot/
-├── reminders/
-├── frontend/        # application React
-├── static/
-└── docs/
+└── requirements.txt
 ```
 
-## Evolution prevue
+Le dossier `templates/` n’est plus utilisé : l’affichage de l’application est assuré par React.
 
-- Passage de SQLite a MySQL via la configuration `DATABASES`.
-- Envoi de rappels par email.
-- Taches planifiees avec Celery ou Django-Q.
-- Chatbot plus avance avec NLP ou API IA.
+## Prérequis
+
+- Python 3.11 ou version supérieure.
+- Node.js 18 ou version supérieure.
+- npm.
+- Git.
+
+## Installation sous Windows
+
+```powershell
+git clone https://github.com/Keira224/Chatbot-.git
+cd "Chatbot-"
+
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+
+Copy-Item .env.example .env
+
+python manage.py migrate
+python manage.py seed_academic_events
+python manage.py seed_chatbot_knowledge
+python manage.py createsuperuser
+
+cd frontend
+npm install
+npm run build
+cd ..
+
+python manage.py runserver
+```
+
+## Installation sous macOS ou Linux
+
+```bash
+git clone https://github.com/Keira224/Chatbot-.git
+cd Chatbot-
+
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+
+cp .env.example .env
+
+python manage.py migrate
+python manage.py seed_academic_events
+python manage.py seed_chatbot_knowledge
+python manage.py createsuperuser
+
+cd frontend
+npm install
+npm run build
+cd ..
+
+python manage.py runserver
+```
+
+Ouvrir ensuite `http://127.0.0.1:8000/`.
+
+## Configuration
+
+Créer un fichier `.env` à la racine du projet à partir de `.env.example` :
+
+```env
+DJANGO_SECRET_KEY=remplacez-par-une-longue-cle-secrete
+DJANGO_DEBUG=True
+ALLOWED_HOSTS=127.0.0.1,localhost
+CSRF_TRUSTED_ORIGINS=http://127.0.0.1:8000,http://localhost:8000
+
+GEMINI_API_KEY=votre-cle-api-gemini
+GEMINI_MODEL=gemini-2.5-flash
+CHATBOT_CACHE_TIMEOUT=21600
+CHATBOT_CACHE_VERSION=3
+```
+
+`GEMINI_API_KEY` est facultative. Le fichier `.env` est ignoré par Git et ne doit jamais être ajouté au dépôt.
+
+Après une modification du fichier `.env`, redémarrer le serveur Django.
+
+## Utilisation
+
+### Adresses principales
+
+- Application : `http://127.0.0.1:8000/`
+- Espace académique : `http://127.0.0.1:8000/accounts/espace-academique/`
+- Espace administrateur : `http://127.0.0.1:8000/accounts/espace-admin/`
+- Administration Django : `http://127.0.0.1:8000/admin/`
+
+L’application redirige automatiquement chaque utilisateur vers l’espace correspondant à son rôle.
+
+### Développement du frontend
+
+Pour modifier React :
+
+```powershell
+cd frontend
+npm install
+npm run dev
+```
+
+Pour générer les fichiers utilisés par Django :
+
+```powershell
+cd frontend
+npm run build
+```
+
+La compilation est écrite dans `static/react/`.
+
+### Commandes Django utiles
+
+```powershell
+python manage.py check
+python manage.py makemigrations
+python manage.py migrate
+python manage.py seed_academic_events
+python manage.py seed_chatbot_knowledge
+python manage.py generate_reminders
+python manage.py createsuperuser
+python manage.py runserver
+```
+
+## Tests et validation
+
+Exécuter les tests :
+
+```powershell
+python manage.py test accounts chatbot
+```
+
+Exécuter les contrôles complets avant un commit :
+
+```powershell
+python manage.py check
+python manage.py test accounts chatbot
+
+cd frontend
+npm run build
+```
+
+État de la dernière validation :
+
+- `python manage.py check` : réussi.
+- `python manage.py test accounts chatbot` : 19 tests réussis.
+- `npm run build` : réussi.
+
+Les tests couvrent notamment :
+
+- la séparation des espaces étudiant, enseignant et administrateur ;
+- les permissions des API d’administration ;
+- l’inscription et les rôles ;
+- les données du tableau de bord ;
+- le cache du chatbot ;
+- la sélection des événements pertinents ;
+- le moteur local et le repli en cas de réponse Gemini invalide.
+
+## Sécurité
+
+- Les mots de passe sont gérés par le système d’authentification Django.
+- Les requêtes d’écriture utilisent la protection CSRF.
+- Les API administratives vérifient le statut administrateur.
+- La clé Gemini reste exclusivement côté serveur.
+- Le fichier `.env`, la base SQLite et les environnements virtuels sont ignorés par Git.
+- En production, désactiver le mode debug et utiliser une clé Django secrète robuste.
+
+## Déploiement
+
+Pour un environnement public :
+
+- définir `DJANGO_DEBUG=False` ;
+- configurer `ALLOWED_HOSTS` et `CSRF_TRUSTED_ORIGINS` ;
+- exécuter `npm run build` ;
+- exécuter `python manage.py collectstatic` ;
+- utiliser PostgreSQL ou MySQL à la place de SQLite ;
+- servir Django avec un serveur WSGI ou ASGI ;
+- servir les fichiers statiques avec un service dédié ;
+- utiliser Redis pour partager le cache entre plusieurs instances.
+
+Ngrok peut être utilisé pour une démonstration temporaire, mais ne constitue pas un hébergement de production.
+
+## Améliorations prévues
+
+- Planification automatique des rappels avec Celery.
+- Backend Redis pour le cache et les tâches.
+- Envoi d’emails avec un fournisseur SMTP.
+- Historique de conversations plus complet.
+- Pagination des événements et utilisateurs.
+- Déploiement avec PostgreSQL.
+- Tests frontend automatisés.
