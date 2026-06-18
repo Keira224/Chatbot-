@@ -1,89 +1,53 @@
-from django.contrib import messages
-from django.contrib.auth import login
-from django.contrib.auth.decorators import login_required, user_passes_test
-from django.contrib.auth.models import User
-from django.contrib.auth.views import LoginView, LogoutView
-from django.shortcuts import redirect, render
+from pathlib import Path
 
-from calendar_app.models import AcademicEvent
-from reminders.models import Notification
-from reminders.services import generate_notifications_for_user
+from django.conf import settings
+from django.http import HttpResponse
+from django.shortcuts import redirect
+from django.views.decorators.csrf import ensure_csrf_cookie
 
-from .forms import StudentProfileForm, StudentRegistrationForm, UserUpdateForm
-from .models import StudentProfile
+REACT_INDEX = Path(settings.BASE_DIR) / "static" / "react" / "index.html"
 
 
-def register(request):
-    if request.method == "POST":
-        form = StudentRegistrationForm(request.POST)
-        if form.is_valid():
-            user = form.save()
-            login(request, user)
-            messages.success(request, "Votre compte etudiant a ete cree.")
-            return redirect("accounts:dashboard")
-    else:
-        form = StudentRegistrationForm()
-    return render(request, "accounts/register.html", {"form": form})
+@ensure_csrf_cookie
+def react_app(request):
+    if not REACT_INDEX.exists():
+        return HttpResponse(
+            "Le frontend React n'est pas construit. Executez `cd frontend && npm run build`.",
+            status=503,
+            content_type="text/plain; charset=utf-8",
+        )
+    return HttpResponse(REACT_INDEX.read_text(encoding="utf-8"))
 
 
-class StudentLoginView(LoginView):
-    template_name = "accounts/login.html"
-
-
-class StudentLogoutView(LogoutView):
-    template_name = "accounts/login.html"
-
-
-@login_required
 def dashboard(request):
-    generate_notifications_for_user(request.user)
-    upcoming_events = AcademicEvent.objects.upcoming()
-    events = upcoming_events[:5]
-    urgent_events = [event for event in upcoming_events if 0 <= event.days_until <= 7][:4]
-    notifications = request.user.notifications.select_related("event").order_by("-created_at")[:5]
-    context = {
-        "events": events,
-        "urgent_events": urgent_events,
-        "notifications": notifications,
-        "total_upcoming_events": upcoming_events.count(),
-        "unread_count": request.user.notifications.filter(is_read=False).count(),
-        "next_event": upcoming_events.first(),
-    }
-    return render(request, "accounts/dashboard.html", context)
+    return react_app(request)
 
 
-@login_required
 def profile(request):
-    profile_obj, _ = StudentProfile.objects.get_or_create(user=request.user)
-    if request.method == "POST":
-        user_form = UserUpdateForm(request.POST, instance=request.user)
-        profile_form = StudentProfileForm(request.POST, instance=profile_obj)
-        if user_form.is_valid() and profile_form.is_valid():
-            user_form.save()
-            profile_form.save()
-            messages.success(request, "Profil mis a jour.")
-            return redirect("accounts:profile")
-    else:
-        user_form = UserUpdateForm(instance=request.user)
-        profile_form = StudentProfileForm(instance=profile_obj)
-    return render(request, "accounts/profile.html", {"user_form": user_form, "profile_form": profile_form})
+    return react_app(request)
 
 
-def is_administrator(user):
-    return user.is_authenticated and user.is_staff
+def home_redirect(request):
+    return react_app(request)
 
 
-@login_required
-@user_passes_test(is_administrator)
+def academic_portal(request):
+    if request.user.is_authenticated and request.user.is_staff:
+        return redirect("accounts:admin_portal")
+    return react_app(request)
+
+
+def student_portal(request):
+    if request.user.is_authenticated and request.user.is_staff:
+        return redirect("accounts:admin_portal")
+    return redirect("accounts:academic_portal")
+
+
+def admin_portal(request):
+    if request.user.is_authenticated and not request.user.is_staff:
+        return redirect("accounts:academic_portal")
+    return react_app(request)
+
+
 def admin_supervision(request):
-    context = {
-        "students_count": User.objects.filter(is_staff=False).count(),
-        "admins_count": User.objects.filter(is_staff=True).count(),
-        "events_count": AcademicEvent.objects.count(),
-        "upcoming_events_count": AcademicEvent.objects.upcoming().count(),
-        "notifications_count": Notification.objects.count(),
-        "unread_notifications_count_total": Notification.objects.filter(is_read=False).count(),
-        "recent_events": AcademicEvent.objects.order_by("-created_at")[:6],
-        "recent_users": User.objects.order_by("-date_joined")[:6],
-    }
-    return render(request, "accounts/admin_supervision.html", context)
+    return redirect("accounts:admin_portal")

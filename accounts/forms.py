@@ -6,17 +6,28 @@ from .models import StudentProfile
 
 
 class StudentRegistrationForm(UserCreationForm):
+    role = forms.ChoiceField(
+        label="Type de compte",
+        choices=StudentProfile.ROLE_CHOICES,
+        widget=forms.RadioSelect,
+    )
     first_name = forms.CharField(label="Prenom", max_length=150)
     last_name = forms.CharField(label="Nom", max_length=150)
     email = forms.EmailField(label="Email")
-    student_number = forms.CharField(label="Matricule", max_length=30, required=False)
-    program = forms.CharField(label="Programme", max_length=120, required=False)
-    level = forms.CharField(label="Niveau", max_length=80, required=False)
+    student_number = forms.CharField(label="Matricule ou identifiant", max_length=30, required=False)
+    program = forms.CharField(label="Filiere ou departement", max_length=120, required=False)
+    level = forms.CharField(label="Niveau ou fonction", max_length=80, required=False)
     phone = forms.CharField(label="Telephone", max_length=30, required=False)
 
     class Meta(UserCreationForm.Meta):
         model = User
         fields = ("username", "first_name", "last_name", "email", "password1", "password2")
+
+    def clean_email(self):
+        email = self.cleaned_data["email"].strip().lower()
+        if User.objects.filter(email__iexact=email).exists():
+            raise forms.ValidationError("Un compte utilise deja cette adresse email.")
+        return email
 
     def save(self, commit=True):
         user = super().save(commit=False)
@@ -27,21 +38,10 @@ class StudentRegistrationForm(UserCreationForm):
             user.save()
             StudentProfile.objects.create(
                 user=user,
+                role=self.cleaned_data["role"],
                 student_number=self.cleaned_data.get("student_number", ""),
                 program=self.cleaned_data.get("program", ""),
                 level=self.cleaned_data.get("level", ""),
                 phone=self.cleaned_data.get("phone", ""),
             )
         return user
-
-
-class UserUpdateForm(forms.ModelForm):
-    class Meta:
-        model = User
-        fields = ("first_name", "last_name", "email")
-
-
-class StudentProfileForm(forms.ModelForm):
-    class Meta:
-        model = StudentProfile
-        fields = ("student_number", "program", "level", "phone")

@@ -4,6 +4,22 @@ from pathlib import Path
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 
+def load_env_file(path):
+    if not path.exists():
+        return
+    for raw_line in path.read_text(encoding="utf-8").splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        key = key.strip()
+        value = value.strip().strip("\"'")
+        os.environ.setdefault(key, value)
+
+
+load_env_file(BASE_DIR / ".env")
+
+
 def env_bool(name, default=False):
     return os.environ.get(name, str(default)).strip().lower() in {"1", "true", "yes", "on"}
 
@@ -45,14 +61,13 @@ ROOT_URLCONF = "config.urls"
 TEMPLATES = [
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",
-        "DIRS": [BASE_DIR / "templates"],
+        "DIRS": [],
         "APP_DIRS": True,
         "OPTIONS": {
             "context_processors": [
                 "django.template.context_processors.request",
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
-                "reminders.context_processors.unread_notifications_count",
             ],
         },
     },
@@ -83,17 +98,27 @@ STATIC_URL = "static/"
 STATICFILES_DIRS = [BASE_DIR / "static"]
 STATIC_ROOT = BASE_DIR / "staticfiles"
 
-LOGIN_URL = "accounts:login"
+LOGIN_URL = "/accounts/connexion/"
 LOGIN_REDIRECT_URL = "accounts:dashboard"
 LOGOUT_REDIRECT_URL = "home"
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
+CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+        "LOCATION": "acadreminder-cache",
+        "TIMEOUT": 60 * 60 * 6,
+    }
+}
+
 EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
 DEFAULT_FROM_EMAIL = "AcadReminder <noreply@acadreminder.local>"
 
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
-GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-3.5-flash")
+GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-2.5-flash")
+CHATBOT_CACHE_TIMEOUT = int(os.environ.get("CHATBOT_CACHE_TIMEOUT", 60 * 60 * 6))
+CHATBOT_CACHE_VERSION = os.environ.get("CHATBOT_CACHE_VERSION", "3")
 
 if not DEBUG:
     SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
